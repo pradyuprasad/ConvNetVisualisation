@@ -1,5 +1,5 @@
 import numpy as np
-def multi_conv1(image: np.array, kernel: np.array) -> np.array:
+def multi_conv1(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     assert image.shape == (3, 28, 28)
     assert kernel.shape == (3, 3, 3)
     output = np.zeros((1, 26, 26))
@@ -10,7 +10,7 @@ def multi_conv1(image: np.array, kernel: np.array) -> np.array:
     assert output.shape == (1, 26, 26)
     return output
 
-def multi_conv2(image: np.array, kernel: np.array) -> np.array:
+def multi_conv2(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     assert image.shape == (3, 28, 28)
     assert kernel.shape == (3, 3, 3)
     output = np.zeros((1, 26, 26))

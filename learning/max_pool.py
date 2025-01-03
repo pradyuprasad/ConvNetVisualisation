@@ -1,9 +1,8 @@
 import numpy as np
 
-array = np.arange(16)
-array = array.reshape((4, 4))
+array = np.arange(16).reshape((4, 4))
 
-def max_pool(image: np.array) -> np.array:
+def max_pool(image: np.ndarray) -> np.ndarray:
     '''
     assume image is 4x4 and we are doing a 2x2 thing
     '''
