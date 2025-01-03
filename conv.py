@@ -8,7 +8,6 @@ def conv(image, kernel):
 
     output = np.zeros((3, 3))
 
-    start = 0 # the horizontal and vertical start and end positions for the kernel
     end = 2
     for i in range(end+1):
         for j in range(end+1):
