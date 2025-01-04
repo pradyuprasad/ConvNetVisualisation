@@ -2,11 +2,10 @@ from CNN import CNN
 from load_data import load_data
 import torch.optim as optim
 import torch.nn as nn
-from typing import List
 import torch
 from torch.utils.data import DataLoader
 
-def train_model(num_epochs=5) -> CNN:
+def train_model(num_epochs=100) -> CNN:
     device = torch.device("mps")
     trainloader, testloader = load_data()
     print("loaded data")
@@ -14,9 +13,10 @@ def train_model(num_epochs=5) -> CNN:
     model: CNN = CNN().to(device)
     optimizer: torch.optim.AdamW = optim.AdamW(model.parameters(), lr=1e-4)
     loss_fn: nn.CrossEntropyLoss = nn.CrossEntropyLoss()
-    loss_list: List[float] = []
+    best_test_score = float('-inf')
 
-    for _ in range(num_epochs):
+
+    for epoch in range(num_epochs):
         for i, data in enumerate(trainloader):
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
@@ -26,11 +26,19 @@ def train_model(num_epochs=5) -> CNN:
             loss_val = loss_fn(outputs, labels)
             loss_val.backward()
             optimizer.step()
-            loss_list.append(loss_val.item())
 
-            if i % 100 == 0:
-                print(f"At batch {i} in epoch {_} the training loss is {loss_val.item()}")
-                print(f"At batch {i} in epoch {_} the test accuracy is {evaluate_on_test_set(testloader, model)}")
+            if i % 20 == 0:
+
+                print(f"At batch {i} in epoch {epoch} the test accuracy is {evaluate_on_test_set(testloader, model)}")
+
+
+        current_test_score = evaluate_on_test_set(testloader, model)
+        if current_test_score > best_test_score:
+            print(f"test accuracy improved from {best_test_score} to {current_test_score} and saved model at epoch {epoch}")
+            best_test_score = current_test_score
+            torch.save(model, 'CNN.pth')
+        else:
+            print(f"test accuracy did not improve from {best_test_score} at epoch {epoch}")
 
     print("finished training")
     torch.save(model, 'CNN.pth')
