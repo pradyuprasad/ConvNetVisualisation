@@ -4,13 +4,14 @@
 '''
 
 import json
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import einops
 import torch
 from CNN import CNN
 import torch.nn.functional as F
 from deconv import get_dataloader_of_specific_class, get_max_activation_coords
 import os
+import numpy as np
 
 
 
@@ -55,10 +56,9 @@ def setup(allowed_class:int) -> DeconvEnv:
     return DeconvEnv(model, deconv, dataloader, device, 32)
 
 
-def single_image_deconv_save(image: torch.Tensor, deconv_env: DeconvEnv, filename:str) -> BinaryResult:
+def single_image_deconv_save(image: torch.Tensor, deconv_env: DeconvEnv, filename: str) -> BinaryResult:
     if '.' not in filename or filename.split('.', 1)[1].lower() != 'json':
         return BinaryResult(False, ValueError("filename should end in json"))
-
     if image.shape != torch.Size([1, 3, 96, 96]):
         return BinaryResult(False, ValueError(f"Shape must be [1, 3, 96, 96] got {image.shape}"))
 
@@ -69,7 +69,6 @@ def single_image_deconv_save(image: torch.Tensor, deconv_env: DeconvEnv, filenam
         return hook
 
     try:
-
         image = image.to(device=deconv_env.device)
         model: CNN = deconv_env.model
         model = model.to(deconv_env.device)
@@ -77,35 +76,54 @@ def single_image_deconv_save(image: torch.Tensor, deconv_env: DeconvEnv, filenam
         model(image)
         feature_map_current_image: torch.Tensor = activations['conv1'][0]
         assert feature_map_current_image.shape == torch.Size([32, 96, 96])
-        projections_of_image: Dict[int, List] = {}
+
+        projections_of_image: Dict[int, Dict] = {}
         for i in range(32):
             feature_map_current_filter = feature_map_current_image[i]
-            assert feature_map_current_filter.shape == torch.Size([96, 96]), f"Expected [96, 96], got {feature_map_current_image.shape}"
+            assert feature_map_current_filter.shape == torch.Size([96, 96])
             max_activ_x, max_activ_y = get_max_activation_coords(feature_map_current_filter)
+
             activations_to_deconv = torch.zeros_like(feature_map_current_image)
             activations_to_deconv[i, max_activ_x, max_activ_y] = feature_map_current_filter[max_activ_x][max_activ_y]
             activations_to_deconv = einops.rearrange(activations_to_deconv, "f x y -> 1 f x y")
             activations_to_deconv = activations_to_deconv.to(deconv_env.device)
             projection_of_this_filter = deconv_env.deconv(activations_to_deconv)
-
             projection_of_this_filter = F.relu(projection_of_this_filter)
-            projection_to_save = einops.rearrange( projection_of_this_filter ,"b c h w -> h w (b c)").detach().cpu().numpy().tolist()
-            assert len(projection_to_save) == 96
-            assert len(projection_to_save[0]) == 96
-            assert len(projection_to_save[0][0]) == 3
-            projections_of_image[i] = projection_to_save
+
+            # Convert to numpy and find non-zero locations
+            proj_array = einops.rearrange(projection_of_this_filter, "b c h w -> h w (b c)").detach().cpu().numpy()
+            non_zero_coords = np.argwhere(proj_array != 0)  # Gets [h, w, c] coordinates
+            if len(non_zero_coords) > 0:
+                non_zero_values = proj_array[tuple(non_zero_coords.T)]  # Get values at those coordinates
+                assert non_zero_coords.shape[1] == 3
+                assert np.all((non_zero_coords[:, 0] >= 0) & (non_zero_coords[:, 0] < 96)), "First dimension out of range [0, 96)."
+
+                assert np.all((non_zero_coords[:, 1] >= 0) & (non_zero_coords[:, 1] < 96)), "Second dimension out of range [0, 96)."
+
+                assert np.all(np.isin(non_zero_coords[:, 2], [0, 1, 2])), "Third dimension must be 0, 1, or 2."
+
+
+                projections_of_image[i] = {
+                    "coords": non_zero_coords.tolist(),
+                    "values": non_zero_values.tolist(),
+                }
+            else:
+               projections_of_image[i] = {
+                   "coords": [],
+                   "values": [],
+               }
 
         with open(filename, "w") as f:
             json.dump(projections_of_image, f)
 
         return BinaryResult(True)
 
-
     except BaseException as e:
        if isinstance(e, KeyboardInterrupt):
            raise
        else:
            return BinaryResult(success=False, error=e)
+
 
 
 def main() -> None:
@@ -121,9 +139,9 @@ def main() -> None:
                 image = einops.rearrange(image, "c h w -> 1 c h w")
                 result: BinaryResult = single_image_deconv_save(image=image, deconv_env=deconv_env, filename=file_name)
                 if result.success:
-                    print(f"in class {allowed_class} image {idx} of batch {batch_no} processed")
+                    print(f"in class {allowed_class} image {img_count} processed")
                 else:
-                    print(f"failed to process image {idx} of batch {batch_no} in class {allowed_class} with error {result.error}")
+                    print(f"failed to process image {img_count} in class {allowed_class} with error {result.error}")
 
 
 if __name__ == "__main__":
