@@ -15,3 +15,5 @@ wheels/
 /data/
 **.pth
 projections/
+projections_full/
+stl10_deconv_visualizations/

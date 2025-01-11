@@ -20,7 +20,7 @@ def load_mean_std_dev_STL() -> Tuple[List[float], List[float]]:
     return metadata['mean'], metadata['std_dev']
 
 
-def load_test_data_for_plotting(batch_size: int = 32, allowed_classes: Optional[List[int]] = None) -> DataLoader:
+def load_test_data_for_plotting(batch_size: int = 32, allowed_classes: Optional[List[int]] = None, shuffle:bool = False) -> DataLoader:
     mean, std = load_mean_std_dev_STL()
     transform: transforms.Compose = transforms.Compose([
         transforms.ToTensor(),
@@ -36,11 +36,11 @@ def load_test_data_for_plotting(batch_size: int = 32, allowed_classes: Optional[
         mask = torch.isin(torch.tensor(testset.labels), torch.tensor(allowed_classes))
         indices = list(torch.where(mask)[0].numpy())
         subset = torch.utils.data.Subset(testset, indices)
-        testloader: DataLoader = DataLoader(subset, batch_size=batch_size, shuffle=False)
+        testloader: DataLoader = DataLoader(subset, batch_size=batch_size, shuffle=shuffle)
 
     else:
 
-        testloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
+        testloader = DataLoader(testset, batch_size=batch_size, shuffle=shuffle)
 
     return testloader
 
