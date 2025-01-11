@@ -1,4 +1,4 @@
-from typing import Dict, Generic, List, Tuple, TypeVar
+from typing import Dict, List, Tuple, TypeVar
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,31 +12,8 @@ NUM_FILTERS = 32
 NUM_CHANNELS = 3
 
 
-class TensorShape(Generic[B]):
-    def __init__(self, tensor: torch.Tensor):
-        self.tensor = tensor
-
-class FirstLayer(TensorShape[B]):
-    def __init__(self, tensor: torch.Tensor):
-        super().__init__(tensor)
-        assert tensor.shape[1:] == (32, 96, 96)
-
-class ReconstructedImage(TensorShape[B]):
-    def __init__(self, tensor: torch.Tensor):
-        super().__init__(tensor)
-        assert tensor.shape[1:] == (3, 96, 96)
-
-
-
-def reconstruct_image_from_first_layer(x: FirstLayer[B], deconv_layer: nn.ConvTranspose2d) -> ReconstructedImage[B]:
-    '''
-
-    '''
-    output = deconv_layer(x.tensor)
-    return ReconstructedImage(output)
-
-def get_dataloader_of_specific_class(allowed_classes: List[int]) -> DataLoader:
-    return load_test_data_for_plotting(batch_size=32, allowed_classes=allowed_classes)
+def get_dataloader_of_specific_class(allowed_classes: List[int], batch_size:int = 32) -> DataLoader:
+    return load_test_data_for_plotting(batch_size=batch_size, allowed_classes=allowed_classes)
 
 def get_max_activation_coords(tensor: torch.Tensor) -> Tuple[int, int]:
     """Takes a 2D tensor and returns the (height, width) coordinates of its maximum value"""
@@ -71,7 +48,7 @@ def reconstruct_wrapper() -> None:
     image_index = 0
 
     feature_map_current_image: torch.Tensor = activations['conv1'][image_index]
-    for i in range(len(images)):
+    for i in range(32):
         feature_map_current_filter = feature_map_current_image[i]
         assert feature_map_current_filter.shape == torch.Size([96, 96]), f"Expected [96, 96], got {feature_map_current_image.shape}"
         max_activ_x, max_activ_y = get_max_activation_coords(feature_map_current_filter)
